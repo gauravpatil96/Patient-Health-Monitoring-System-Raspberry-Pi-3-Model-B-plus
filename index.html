@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Patient Monitor</title>
+<style>
+  :root {
+    --bg: #0f1720;
+    --card: #17212b;
+    --text: #e8edf2;
+    --muted: #8fa3b3;
+    --ok: #34d399;
+    --warn: #fbbf24;
+    --bad: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px 16px 60px;
+  }
+  .header {
+    max-width: 900px;
+    margin: 0 auto 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .header h1 { font-size: 1.4rem; margin: 0; }
+  .header .device-id { color: var(--muted); font-size: 0.85rem; }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    background: #1f2937;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bad); }
+  .dot.ok { background: var(--ok); }
+  .grid {
+    max-width: 900px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  }
+  .card .label {
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .card .value {
+    font-size: 2.6rem;
+    font-weight: 700;
+    margin: 10px 0 2px;
+  }
+  .card .unit { color: var(--muted); font-size: 0.9rem; }
+  .footer {
+    max-width: 900px;
+    margin: 24px auto 0;
+    color: var(--muted);
+    font-size: 0.8rem;
+    text-align: center;
+  }
+  .notice {
+    max-width: 900px;
+    margin: 0 auto 16px;
+    background: #3a2e15;
+    color: var(--warn);
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1 id="patient-name">Patient</h1>
+    <div class="device-id" id="device-id">-</div>
+  </div>
+  <div class="status-pill">
+    <span class="dot" id="status-dot"></span>
+    <span id="status-text">Connecting...</span>
+  </div>
+</div>
+
+<div class="notice" id="finger-notice">Place a finger flat on the MAX30102 sensor for heart rate / SpO2.</div>
+
+<div class="grid">
+  <div class="card">
+    <div class="label">Temperature</div>
+    <div class="value" id="temp-value">--</div>
+    <div class="unit">&deg;C</div>
+  </div>
+  <div class="card">
+    <div class="label">Heart Rate</div>
+    <div class="value" id="hr-value">--</div>
+    <div class="unit">bpm</div>
+  </div>
+  <div class="card">
+    <div class="label">SpO2</div>
+    <div class="value" id="spo2-value">--</div>
+    <div class="unit">%</div>
+  </div>
+</div>
+
+<div class="footer">
+  Last updated: <span id="last-updated">-</span> &middot; refreshes every second
+</div>
+
+<script>
+async function refresh() {
+  try {
+    const res = await fetch('/api/data');
+    const data = await res.json();
+
+    document.getElementById('patient-name').textContent = data.patient_name || 'Patient';
+    document.getElementById('device-id').textContent = data.device_id || '';
+
+    document.getElementById('temp-value').textContent =
+      data.temperature_c !== null ? data.temperature_c.toFixed(1) : '--';
+    document.getElementById('hr-value').textContent =
+      data.heart_rate_bpm !== null ? data.heart_rate_bpm : '--';
+    document.getElementById('spo2-value').textContent =
+      data.spo2_percent !== null ? data.spo2_percent.toFixed(1) : '--';
+
+    document.getElementById('last-updated').textContent = data.last_updated || '-';
+
+    const dot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    if (data.sensor_ok) {
+      dot.classList.add('ok');
+      statusText.textContent = 'Sensor online';
+    } else {
+      dot.classList.remove('ok');
+      statusText.textContent = 'Sensor offline';
+    }
+
+    document.getElementById('finger-notice').style.display =
+      (data.sensor_ok && !data.finger_detected) ? 'block' : 'none';
+
+  } catch (e) {
+    document.getElementById('status-text').textContent = 'Connection lost';
+  }
+}
+
+refresh();
+setInterval(refresh, 1000);
+</script>
+
+</body>
+</html>
